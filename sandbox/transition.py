@@ -2,7 +2,13 @@
 ##
 ## Definition of a transition functions and interface.
 
-import numpy as np
+# See if CuPY is available, otherwise, default to Numpy
+try:
+	import cupy as np
+except:
+	import numpy as np
+
+#import sparse
 
 class AbstractTransition:
 	"""
@@ -124,124 +130,10 @@ class DiscreteTransition(AbstractTransition):
 			return np.random.choice(range(self.num_states), size=shape, p=state_distribution)
 
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-class SymbolicTransition(AbstractTransition):
-	"""
-	SymbolicTransition is a wrapper for a DiscreteTransition so that symbolic
-	representations of states and actions can be used in lieu of enumerated 
-	values.
-	"""
-
-	def __init__(self, base_transition, state_map, action_map):
+	def asArray(self):
 		"""
-		Create a discrete transition function for the provided state and action
-		space dimensionality.
-
-		num_states    - the number of states in the transition model
-		num_actions   - the number of actions in the transition model
-		initial_value - (optional) the value to initialize each probability to
-		                Default value is 0.
+		Return a numpy array representing the transition tensor P(s,a,s')
 		"""
 
-		AbstractTransition.__init__(self)
-
-		self.__transition = base_transition
-		self.state_map = state_map
-		self.action_map = action_map
-
-
-	def set(self, state, action, next_state, probability):
-		"""
-		Set the probability of the transition provided.  
-
-		Multiple transitions can be set simulataneously by passing iterable
-		objects for the state, action, next_state, and probability arguments.
-		In the event that 
-		"""
-
-		state_num = self.state_map(state)
-		action_num = self.action_map(action)
-		next_state_num = self.state_map(next_state)
-
-		self.__transition[state_num, action_num, next_state_num] = probability
-
-
-	def __call__(self, state, action, next_state):
-		"""
-		Return the probability of transitioning to next_state from state when
-		action is performed
-		"""
-
-		# TODO: Validate that state, action, and next state are within range
-
-		state_num = self.state_map(state)
-		action_num = self.action_map(action)
-		next_state_num = self.state_map(next_state)
-
-		return self.__transition(state_num, action_num, next_state_num)
-
-
-	def __getitem__(self, index):
-		"""
-		Returns the probability of transitioning to next_state from state when
-		action is performed.  Allows for slicing among multiple dimensions.
-		"""
-
-		# TODO: Validate that state, action, and next state are within range
-		# TODO: Assert that index is a tuple
-
-		state_num = self.state_map(index[0])
-		action_num = self.action_map(index[1])
-		next_state_num = self.state_map(index[2])
-
-		return self.__transition(state_num, action_num, next_state_num)
-
-
-	def __setitem__(self, index, value):
-		"""
-		Sets the transition probabilit(ies) at the index to the provided value
-		"""
-
-		state_num = self.state_map(index[0])
-		action_num = self.action_map(index[1])
-		next_state_num = self.state_map(index[2])
-
-		self.__transition[state_num, action_num, next_state_num] = value
-
-
-	def sample(self, state, action):
-		"""
-		Generate a sample of the next_state given the state / action pair.
-
-		state  - current state
-		action - action performed
-		"""
-
-		# TODO: Validate that state, action, and next state are within range
-		state_num = self.state_map(state)
-		action_num = self.action_map(action)
-
-		next_state_num = self.__transition.sample(state_num, action_num)
-
-		return self.state_map[next_state_num]
-
+		return self.__transition
+		

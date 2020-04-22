@@ -2,7 +2,11 @@
 ##
 ## A set of classes defining a policy for agents to perform within an MDP.
 
-import numpy as np
+# See if CuPY is available, otherwise, default to Numpy
+try:
+	import cupy as np
+except:
+	import numpy as np
 
 class AbstractPolicy:
 	"""
@@ -199,7 +203,7 @@ class DiscreteDeterministicPolicy(AbstractPolicy):
 		likelihood = 0.0
 
 		for state, action in trajectory:
-			likelihood += -np.inf if self.getActionProbability(state, action) == 0
+			likelihood += -np.inf if self.getActionProbability(state, action) == 0 else 0.0
 
 		return likelihood
 
@@ -333,7 +337,7 @@ class DiscreteStochasticPolicy(AbstractPolicy):
 		likelihood = 0.0
 
 		for state, action in trajectory:
-			likelihood += np.log()
+			likelihood += np.log(max(self[state,action], eps))
 
 		return likelihood
 

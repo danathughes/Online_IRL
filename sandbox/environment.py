@@ -5,6 +5,8 @@
 from reward import *
 from transition import *
 
+from itertools import product
+
 
 class DiscreteSpace:
    """
@@ -216,7 +218,7 @@ class DiscreteEnvironment(AbstractEnvironment):
    States and actions are represented in a DiscreteSpace.
    """
 
-   def __init__(self, stateSpace, actionSpace, initial_state = None):
+   def __init__(self, stateSpace, actionSpace, initial_state = None, TransitionClass = DiscreteTransition):
       """
       Create a discrete environment, defined by the provided states and 
       actions.
@@ -231,8 +233,8 @@ class DiscreteEnvironment(AbstractEnvironment):
       self.actionSpace = actionSpace
 
       # Set up the transition function, reward and terminal states
-      self.transition = DiscreteTransition(self.stateSpace.size(), self.actionSpace.size())
-      self.terminal_states = set()
+      self.transition = TransitionClass(self.stateSpace.size(), self.actionSpace.size())
+      self.terminalStates = set()
 
       # If an initial state is not provided, simply assume the first state in 
       # the state space
@@ -304,7 +306,7 @@ class DiscreteEnvironment(AbstractEnvironment):
 
       # TODO: Ensure the terminal state is in the state space
 
-      self.terminal_states.add(state)
+      self.terminalStates.add(state)
 
 
    def isTerminal(self, state):
@@ -312,7 +314,7 @@ class DiscreteEnvironment(AbstractEnvironment):
       Check if the state is a terminal state
       """
 
-      return state in self.terminal_states
+      return state in self.terminalStates
 
 
    def __str__(self):
@@ -360,15 +362,6 @@ class Gridworld(DiscreteEnvironment):
       if can_stay:
          actions.append('stay')
 
-      # Call the DiscreteEnvironment initializer, passing the states and 
-      # actions wrapped as DiscreteSpaces.  This initializes the stateSpace, 
-      # actionSpace, transition and terminal_state attributes.
-
-      DiscreteEnvironment.__init__(self, DiscreteSpace(states), 
-                                         DiscreteSpace(actions), 
-                                         initial_state=initial_state)
-
-
       # Create a set of the blocked cells in the environment
       self.blocked_cells = set()
 
@@ -376,6 +369,18 @@ class Gridworld(DiscreteEnvironment):
          for x,y in states:
             if blocked[x,y] != 0:
                self.blocked_cells.add((x,y))
+
+      # Remove blocked cells from the state space
+      for x,y, in self.blocked_cells:
+         states.remove((x,y))
+
+      # Call the DiscreteEnvironment initializer, passing the states and 
+      # actions wrapped as DiscreteSpaces.  This initializes the stateSpace, 
+      # actionSpace, transition and terminal_state attributes.
+
+      DiscreteEnvironment.__init__(self, DiscreteSpace(states), 
+                                         DiscreteSpace(actions), 
+                                         initial_state=initial_state)
 
 
       # Populate the transition functions
@@ -410,7 +415,6 @@ class Gridworld(DiscreteEnvironment):
       """
 
       return "Gridworld Environment\n   World Shape: (%d, %d)\n   Can Stay:    %s" % (self.shape[0], self.shape[1], 'True' if 'stay' in self.actions else 'False')
-
 
 
 
@@ -473,7 +477,7 @@ class NoisyGridworld(Gridworld):
 
       # Increase the chance of transitioning into each valid next state by
       # noise / valid_states
-      for next_state in valid_next_states:
+      for nextState in valid_next_states:
 
          self.transition[self.enumerate(state, action, nextState)] += noise / len(valid_next_states)
 
@@ -487,6 +491,145 @@ class NoisyGridworld(Gridworld):
 
 
 
+class Taskworld(DiscreteEnvironment):
+   """
+   A Taskworld environment is similar to a Gridworld environment, in that it 
+   defines a 2D grid world.  States are symbolically represented as the (x,y)
+   position of an agent in the world, augmented by a binary list of specific
+   tasks to be completed.  Actions consist of 'up', 'down', 'left', 'right', 
+   'operate', and optionally 'stay'.  Grid cells can be blocked.
+
+   Tasks are associated with specific grid cells, with one task per grid cell.
+   When operate is performed on the grid cell, it sets the task as complete.
+
+   Note that the state space of the environment grows exponentially with the
+   number of tasks.
+   """
+
+   def __init__(self, shape, numTasks, initial_state = None, can_stay=True, blocked=None):
+      """
+      Create a taskworld with the given size and number of tasks.  States are
+      defined as the cross-product of (x,y) corrdinates and a binary vector of
+      task completion.  Actions are in the set ['up','down','left','right',
+      'operate','stay']
+
+      shape         - tuple defining the size of the world: (width, height)
+      numTasks      - number of tasks to be completed.
+      initial_state - (optional) start state of the agent in the environment
+                      Default to (0,0)
+      can_stay      - indicates if the agent has an option to stay in the same
+                      location as an action.  Default is True
+      blocked       - a 2D array-like indicating which cells are blocked.
+                      Shape of the array should match the shape parameter;
+                      blocked grids are indicated by a non-zero entry.
+      """
+
+
+      # Store the size of the world, and create state and action spaces for the
+      # SymbolicEnvironment initializer
+      self.shape = shape
+      self.numTasks = numTasks
+
+      # Where are tasks located?  Set to (-1,-1) to indicate that task location
+      # has not been assigned yet.
+      self.taskLocations = [(-1,-1)] * self.numTasks
+      self.taskComplete = [False] * self.numTasks
+
+      # Task completion vectors are defined as binary tuples indicating which 
+      # tasks are complete.
+      taskSpace = list(product([True,False], repeat=self.numTasks))
+
+      self.locations = [(x,y) for x in range(self.shape[0]) for y in range(self.shape[1])]
+
+      # Create a set of the blocked cells in the environment
+      # TODO: Remove blocked cells from the stateSpace, to speed up value iteration
+      self.blocked_cells = set()
+
+      if blocked is not None:
+         for x,y in self.locations:
+            if blocked[x,y] != 0:
+               self.blocked_cells.add((x,y))    # Add this as a blocked cell
+               self.locations.remove((x,y))     # Remove from possible locations
+
+
+      # States are defined as all possible combinations of locations and task
+      # completion states
+      print(len(taskSpace))
+      print(len(self.locations))
+      states = [(location,task) for location in self.locations for task in taskSpace]
+      print(len(states))
+      actions = ['up','right','down','left','operate']
+      if can_stay:
+         actions.append('stay')
+
+      # Call the DiscreteEnvironment initializer, passing the states and 
+      # actions wrapped as DiscreteSpaces.  This initializes the stateSpace, 
+      # actionSpace, transition and terminal_state attributes.
+
+      DiscreteEnvironment.__init__(self, DiscreteSpace(states), 
+                                         DiscreteSpace(actions), 
+                                         initial_state=initial_state)
+
+
+      # Populate the transition functions
+      for state,action in [(s,a) for s in self.stateSpace for a in self.actionSpace]:
+         self.__set_transitions(state, action)
+
+
+   def setTaskLocation(self, taskNumber, location, taskComplete=None):
+      """
+      Set the location of a task, and optionally if it has been performed
+      """
+
+      self.taskLocations[taskNumber] = location
+      self.taskComplete = taskComplete if taskComplete is not None else False
+
+
+   def update(self):
+      """
+      """
+
+      for state, action in [(s,a) for s in self.stateSpace for a in self.actionSpace]:
+         self.__set_transitions(state,action)
+
+
+   def __set_transitions(self, state, action):
+      """
+      Creates the entries in the transition function for the given state and action
+      """
+
+      # Extract location to calculate the position of the next state, and task
+      # completion to calculate the effect of operate actions
+      location, task = state
+      x,y = location
+
+      # Update x and y based on actions
+      x += {'left': -1, 'right': 1}.get(action, 0)
+      y += {'up': -1, 'down': 1}.get(action, 0)
+
+      # Check if the new x,y maps to a valid state.  If not, next_state should
+      # simply be the original state
+      if (x,y) not in self.locations or (x,y) in self.blocked_cells:
+         x,y = location
+
+      # See what to do if an operation is performed
+      if action == 'operate' and location in self.taskLocations:
+         # Set the completion of the task at this location to True
+         task = list(task)
+         taskIndex = self.taskLocations.index(location)
+         task[taskIndex] = True
+         task = tuple(task)
+
+      # Populate the transition function
+      self.transition[self.enumerate(state, action, ((x,y),task))] = 1.0
+
+
+   def __str__(self):
+      """
+      String representation of the environment
+      """
+
+      return "Gridworld Environment\n   World Shape: (%d, %d)\n   Can Stay:    %s" % (self.shape[0], self.shape[1], 'True' if 'stay' in self.actions else 'False')
 
 
 
