@@ -45,7 +45,7 @@ class TaskWorld:
 			self.world.addTerminalState(task)
 
 
-def run(log_path):
+def run(log_path, visualize):
 	#### Create the environment #####
 	world = NoisyGridworld((WIDTH,HEIGHT), blocked=blocked, noise = NOISE, TransitionClass=SparseTransition)
 	taskWorld = TaskWorld(world)
@@ -88,25 +88,26 @@ def run(log_path):
 
 
 	### Create a visualizer for all the components of interest
-	vis=MatplotVisualizer()#(WIDTH,HEIGHT), ['red','blue','green'], blocked=blocked, mdp=mdp, num_steps=1000, r_max=2.1)
+	if visualize:
+		vis=MatplotVisualizer()#(WIDTH,HEIGHT), ['red','blue','green'], blocked=blocked, mdp=mdp, num_steps=1000, r_max=2.1)
 
-	stateValueVisualizer = GridworldValueVisualizer(mdp, title="State Value", v_max=R_MAX)
-	irlValueVisualizer = GridworldValueVisualizer(irlMdp, title="Pseudoestimate", v_max=R_MAX)
-	onlineIrlValueVisualizer = GridworldValueVisualizer(onlineIrlMdp, title="Online IRL Estimate", v_max=R_MAX)
+		stateValueVisualizer = GridworldValueVisualizer(mdp, title="State Value", v_max=R_MAX)
+		irlValueVisualizer = GridworldValueVisualizer(irlMdp, title="Pseudoestimate", v_max=R_MAX)
+		onlineIrlValueVisualizer = GridworldValueVisualizer(onlineIrlMdp, title="Online IRL Estimate", v_max=R_MAX)
 
-	mapVisualizer = GridworldVisualizer(mdp, tasks, ['red','blue','green'], blocked=blocked, title="Map")
-	playerVisualizer = AgentVisualizer('yellow', (0,0))
-	mapVisualizer.add(playerVisualizer)
+		mapVisualizer = GridworldVisualizer(mdp, tasks, ['red','blue','green'], blocked=blocked, title="Map")
+		playerVisualizer = AgentVisualizer('yellow', (0,0))
+		mapVisualizer.add(playerVisualizer)
 
-	vis.add(mapVisualizer, 141)
-	vis.add(stateValueVisualizer, 142)
-	vis.add(irlValueVisualizer, 143)
-	vis.add(onlineIrlValueVisualizer, 144)
+		vis.add(mapVisualizer, 141)
+		vis.add(stateValueVisualizer, 142)
+		vis.add(irlValueVisualizer, 143)
+		vis.add(onlineIrlValueVisualizer, 144)
 
-	### Link observers
-	solver.register(stateValueVisualizer)
-	irlSolver.register(irlValueVisualizer)
-	onlineIrlSolver.register(onlineIrlValueVisualizer)
+		### Link observers
+		solver.register(stateValueVisualizer)
+		irlSolver.register(irlValueVisualizer)
+		onlineIrlSolver.register(onlineIrlValueVisualizer)
 
 
 	log = Logger(log_path,
@@ -156,8 +157,9 @@ def run(log_path):
 
 
 		### Update the visualization ###
-		playerVisualizer.updatePosition(state)
-		vis.redraw()
+		if visualize:
+			playerVisualizer.updatePosition(state)
+			vis.redraw()
 
 
 		### Check the next state.  If it's on a task, there's work to do
@@ -234,11 +236,12 @@ def run(log_path):
 	# Save the log
 	log.save()
 
-	vis.close()
+	if visualize:
+		vis.close()
 
 
 if __name__ == '__main__':
 	for i in range(1):
 		print("Experiment %d" % i)
-		run('dummy.pkl')
+		run('dummy.pkl', False)
 #		run('human_monitoring_experiment_20x20_20tasks_no_intent_recognition_%d.pkl'%i)
