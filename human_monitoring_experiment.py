@@ -8,6 +8,8 @@ from utils import Logger, GridworldVisualizer, GridworldValueVisualizer, AgentVi
 from world_config_20x20 import *
 import random
 import copy
+import os
+import sys
 
 def createTasks(stateSpace, num_task_types):
 	"""
@@ -128,6 +130,8 @@ def run(log_path, visualize):
 	for t in range(NUM_STEPS):
 		# Update the logger time
 		log.setTime(t)
+		if (t+1)%100 == 0:
+			print("Step",t)
 
 		# Update the reward parameter
 
@@ -206,18 +210,18 @@ def run(log_path, visualize):
 			log.log('onlineIRL_beta', onlineIRL.beta.copy())
 			log.log('onlineIRL_KL', onlineIRL.divergence)
 
-			print("Time Step %d:" % t)
-			print("  Reward Parameters:", rewardParameters[t])
-			print()
-			print("  IRL Update:")
-			print("    Reward Pseudoestimate: ", onlineIRL.pseudoestimate)
-			print("    Reward Pseudovariance: ", onlineIRL.pseudovariance)
-			print("  OnlineIRL Update:")
-			print("    Updated Reward Estimate: ", onlineIRL.meanReward)
-			print("    Updated Reward Variance: ", onlineIRL.varReward)
-			print("    KL Divergence: ", onlineIRL.divergence)
-			print()
-			print()
+#			print("Time Step %d:" % t)
+#			print("  Reward Parameters:", rewardParameters[t])
+#			print()
+#			print("  IRL Update:")
+#			print("    Reward Pseudoestimate: ", onlineIRL.pseudoestimate)
+#			print("    Reward Pseudovariance: ", onlineIRL.pseudovariance)
+#			print("  OnlineIRL Update:")
+#			print("    Updated Reward Estimate: ", onlineIRL.meanReward)
+#			print("    Updated Reward Variance: ", onlineIRL.varReward)
+#			print("    KL Divergence: ", onlineIRL.divergence)
+#			print()
+#			print()
 
 
 			onlineIrlReward.setParameters(onlineIRL.meanReward)
@@ -241,7 +245,11 @@ def run(log_path, visualize):
 
 
 if __name__ == '__main__':
-	for i in range(1):
+	num_runs = 100
+	path = "./experiments/human_monitoring_no_intent_recogntion/"
+	if not os.path.exists(path):
+		os.makedirs(path)
+	path_template = path + "run_%d"
+	for i in range(num_runs):
 		print("Experiment %d" % i)
-		run('dummy.pkl', False)
-#		run('human_monitoring_experiment_20x20_20tasks_no_intent_recognition_%d.pkl'%i)
+		run(path_template % i, False)
