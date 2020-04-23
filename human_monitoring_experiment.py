@@ -148,7 +148,8 @@ def run(log_path, visualize):
 		# Update the reward parameter
 
 		reward.setParameters(rewardParameters[t])
-		rewardParamVisualizer.add(t, rewardParameters[t])
+		if visualize:	
+			rewardParamVisualizer.add(t, rewardParameters[t])
 
 		log.log('reward_parameters', rewardParameters[t])
 		log.log('tasks', tasks.toList())
@@ -234,9 +235,10 @@ def run(log_path, visualize):
 			log.log('onlineIRL_V', onlineIrlSolver.V.copy())
 			log.log('onlineIrl_Q', onlineIrlSolver.Q.copy())
 
-			rewardEstimateVisualizer.add(t, onlineIRL.meanReward, variance=onlineIRL.varReward)
-			pseudoestimateVisualizer.add(t, onlineIRL.pseudoestimate, variance=onlineIRL.pseudovariance)
-			divergenceVisualizer.add(t, [onlineIRL.divergence])
+			if visualize:
+				rewardEstimateVisualizer.add(t, onlineIRL.meanReward, variance=onlineIRL.varReward)
+				pseudoestimateVisualizer.add(t, onlineIRL.pseudoestimate, variance=onlineIRL.pseudovariance)
+				divergenceVisualizer.add(t, [onlineIRL.divergence])
 
 			if onlineIRL.divergence >= NEW_INTENT_THRESHOLD and t >= new_intent_time:
 				new_intent_time = t + MIN_NUMBER_STEPS_NEW_INTENT
@@ -255,11 +257,11 @@ def run(log_path, visualize):
 
 
 if __name__ == '__main__':
-	num_runs = 1
-	path = "./experiments/human_monitoring_no_intent_recogntion/"
+	
+	path = "./experiments/human_monitoring/"
 	if not os.path.exists(path):
 		os.makedirs(path)
-	path_template = path + "run_%d"
-	for i in range(num_runs):
-		print("Experiment %d" % i)
-		run(path_template % i, True)
+	path_template = path + "run_%d.pkl"
+	for run_num in range(100):
+		print("Experiment %d" % run_num)
+		run(path_template % run_num, False) 
