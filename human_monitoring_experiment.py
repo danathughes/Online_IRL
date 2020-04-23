@@ -3,9 +3,10 @@ import numpy as np
 from sparse_mdp import *
 from irl import *
 from online_irl import *
-from utils import Logger, GridworldVisualizer, GridworldValueVisualizer, AgentVisualizer, MatplotVisualizer
+from utils import Logger, GridworldVisualizer, GridworldValueVisualizer, AgentVisualizer, MatplotVisualizer, TimeSeriesVisualizer
 
 from world_config_20x20 import *
+#from world_config_6x6 import *
 import random
 import copy
 import os
@@ -101,10 +102,22 @@ def run(log_path, visualize):
 		playerVisualizer = AgentVisualizer('yellow', (0,0))
 		mapVisualizer.add(playerVisualizer)
 
-		vis.add(mapVisualizer, 141)
-		vis.add(stateValueVisualizer, 142)
-		vis.add(irlValueVisualizer, 143)
-		vis.add(onlineIrlValueVisualizer, 144)
+		rewardParamVisualizer = TimeSeriesVisualizer(['red','blue','green'], max_time=1000, y_max = 2.0, title="Reward Parameters")
+		rewardEstimateVisualizer = TimeSeriesVisualizer(['red','blue','green'], max_time=1000, y_max = 2.0, title="Reward Estimate", include_variance=True)
+		pseudoestimateVisualizer = TimeSeriesVisualizer(['red','blue','green'], max_time=1000, y_max = 2.0, title="Pseudo Estimate", include_variance=True)
+		divergenceVisualizer = TimeSeriesVisualizer(['black'], max_time=1000, y_max = 01000.0, title="KL Divergence")
+
+
+		vis.add(mapVisualizer, 441)
+		vis.add(stateValueVisualizer, 442)
+		vis.add(irlValueVisualizer, 443)
+		vis.add(onlineIrlValueVisualizer, 444)
+
+		vis.add(rewardParamVisualizer, 425)
+		vis.add(rewardEstimateVisualizer, 426)
+		vis.add(pseudoestimateVisualizer, 427)
+		vis.add(divergenceVisualizer, 428)
+
 
 		### Link observers
 		solver.register(stateValueVisualizer)
@@ -124,18 +137,18 @@ def run(log_path, visualize):
 	# Get the world state
 	state = world.current_state
 	trajectory = []
+	new_intent_time = MIN_NUMBER_STEPS_NEW_INTENT
 
 
 
 	for t in range(NUM_STEPS):
 		# Update the logger time
 		log.setTime(t)
-		if (t+1)%100 == 0:
-			print("Step",t)
 
 		# Update the reward parameter
 
 		reward.setParameters(rewardParameters[t])
+		rewardParamVisualizer.add(t, rewardParameters[t])
 
 		log.log('reward_parameters', rewardParameters[t])
 		log.log('tasks', tasks.toList())
@@ -201,7 +214,7 @@ def run(log_path, visualize):
 
 		if updateIRL:
 			log.log('reward_pseudoestimate', onlineIRL.pseudoestimate.copy())
-			log.log('reward_pseudovariance', onlineIRL.pseudoestimate.copy())
+			log.log('reward_pseudovariance', onlineIRL.pseudovariance.copy())
 			log.log('reward_estimate_update', onlineIRL.meanReward.copy())
 			log.log('reward_variance_update', onlineIRL.varReward.copy())
 			log.log('onlineIRL_mu', onlineIRL.mu.copy())
@@ -209,20 +222,6 @@ def run(log_path, visualize):
 			log.log('onlineIRL_alpha', onlineIRL.alpha.copy())
 			log.log('onlineIRL_beta', onlineIRL.beta.copy())
 			log.log('onlineIRL_KL', onlineIRL.divergence)
-
-#			print("Time Step %d:" % t)
-#			print("  Reward Parameters:", rewardParameters[t])
-#			print()
-#			print("  IRL Update:")
-#			print("    Reward Pseudoestimate: ", onlineIRL.pseudoestimate)
-#			print("    Reward Pseudovariance: ", onlineIRL.pseudovariance)
-#			print("  OnlineIRL Update:")
-#			print("    Updated Reward Estimate: ", onlineIRL.meanReward)
-#			print("    Updated Reward Variance: ", onlineIRL.varReward)
-#			print("    KL Divergence: ", onlineIRL.divergence)
-#			print()
-#			print()
-
 
 			onlineIrlReward.setParameters(onlineIRL.meanReward)
 			irlPolicy = irlSolver.solve()
@@ -235,21 +234,32 @@ def run(log_path, visualize):
 			log.log('onlineIRL_V', onlineIrlSolver.V.copy())
 			log.log('onlineIrl_Q', onlineIrlSolver.Q.copy())
 
+			rewardEstimateVisualizer.add(t, onlineIRL.meanReward, variance=onlineIRL.varReward)
+			pseudoestimateVisualizer.add(t, onlineIRL.pseudoestimate, variance=onlineIRL.pseudovariance)
+			divergenceVisualizer.add(t, [onlineIRL.divergence])
+
+			if onlineIRL.divergence >= NEW_INTENT_THRESHOLD and t >= new_intent_time:
+				new_intent_time = t + MIN_NUMBER_STEPS_NEW_INTENT
+				print("New intent at time %d" % t)
+				log.log('final_intent_reward_parameters', onlineIRL.meanReward.copy())
+				onlineIRL.init_hyperparameters()
+				log.log('new_intent', True)
+
 
 
 	# Save the log
 	log.save()
 
-	if visualize:
-		vis.close()
+#	if visualize:
+#		vis.close()
 
 
 if __name__ == '__main__':
-	num_runs = 100
+	num_runs = 1
 	path = "./experiments/human_monitoring_no_intent_recogntion/"
 	if not os.path.exists(path):
 		os.makedirs(path)
 	path_template = path + "run_%d"
 	for i in range(num_runs):
 		print("Experiment %d" % i)
-		run(path_template % i, False)
+		run(path_template % i, True)

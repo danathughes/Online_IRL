@@ -63,7 +63,8 @@ class DecayedBayesianOnlineIRL:
 		self.varReward = self.beta / (self.alpha - 1.0)
 
 
-	def estimateRewardVariance(self, trajectory, num_samples = 200):
+
+	def estimateRewardVariance(self, trajectory, prior=None, num_samples = 200):
 		"""
 		Estimate the reward variance
 		"""
@@ -85,8 +86,17 @@ class DecayedBayesianOnlineIRL:
 			policy = self.baseIRL.solver.solve(update=False)
 			sample_likelihoods[i] = policy.likelihood(trajectory)
 
+# Include a prior?
+#			if prior is not None:
+#				dist = np.sum((self.mdp.env.reward.parameters - mu)**2/sigma)
+#				prior_likelihood = -0.5*dist
+#			else:
+#				prior_likelihood = 0.0
+
+
 		# Restore the old parameters
 		self.baseIRL.reward.setParameters(old_parameters)
+
 
 		# Calculate the weights of each reward sample, and the weighted
 		# variance
@@ -163,4 +173,4 @@ class DecayedBayesianOnlineIRL:
 		self.meanReward = self.mu
 		self.varReward = self.beta / (self.alpha - 1.0)
 
-		self.divergence = self.kl(oldMeanReward, oldVarReward, self.meanReward, self.varReward)
+		self.divergence = self.kl(oldMeanReward, oldVarReward, self.pseudoestimate, self.pseudovariance)

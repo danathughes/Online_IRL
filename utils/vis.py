@@ -4,6 +4,86 @@ from matplotlib import cm
 import numpy as np
 
 
+class TimeSeriesVisualizer:
+	"""
+	A visualizer for time series data
+	"""
+
+	def __init__(self, colors, max_time=None, y_max = None, title=None, include_variance=False):
+		"""
+		"""
+
+		self.colors = colors
+		self.num_series = len(self.colors)
+		self.time = []
+		self.data = [[] for _ in range(self.num_series)]
+		self.max_time = max_time
+		self.y_max = y_max
+		self.title = title
+
+		self.axes=None
+		self.plot_handles = []
+		self.variance_handles = []
+
+		self.include_variance = include_variance
+		if self.include_variance:
+			self.variance_data_upper = [[] for _ in range(self.num_series)]
+			self.variance_data_lower = [[] for _ in range(self.num_series)]
+
+
+	def build(self, axes):
+		
+		# Create a plot
+		self.axes = axes
+
+		for i in range(self.num_series):
+			self.plot_handles.append(self.axes.plot([], [], linewidth=2, color=self.colors[i]))
+
+			if self.include_variance:
+				lower_handle = self.axes.plot([], [], linewidth=1, color=self.colors[i], linestyle="--")
+				upper_handle = self.axes.plot([], [], linewidth=1, color=self.colors[i], linestyle="--")
+				self.variance_handles.append([lower_handle,upper_handle])
+
+
+
+
+
+		if self.max_time is not None:
+			self.axes.set_xlim(0, self.max_time)
+		if self.y_max is not None:
+			self.axes.set_ylim(-self.y_max, self.y_max)
+		if self.title is not None:
+			self.axes.set_title(self.title)
+
+
+	def update(self):
+		
+		for i in range(self.num_series):
+			self.plot_handles[i][0].set_xdata(self.time)
+			self.plot_handles[i][0].set_ydata(self.data[i])		
+
+			if self.include_variance:
+				self.variance_handles[i][0][0].set_xdata(self.time)
+				self.variance_handles[i][0][0].set_ydata(self.variance_data_lower[i])
+				self.variance_handles[i][1][0].set_xdata(self.time)
+				self.variance_handles[i][1][0].set_ydata(self.variance_data_upper[i])
+
+
+
+	def add(self, time, value, variance=None):
+		"""
+		"""
+
+		self.time.append(time)
+		for i in range(self.num_series):
+			self.data[i].append(value[i])		
+
+			if self.include_variance and variance is not None:
+				self.variance_data_lower[i].append(value[i] - variance[i])
+				self.variance_data_upper[i].append(value[i] + variance[i])
+
+
+
 class AgentVisualizer:
 	"""
 	A visualizer for the position of agents in the gridworld.
