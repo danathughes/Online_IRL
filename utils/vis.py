@@ -173,6 +173,10 @@ class GridworldValueVisualizer:
 		return gridValues
 
 
+	def updateGrid(self, V):
+		self.data.set_array(V)
+		
+
 	def updateValue(self, V, Q):
 		"""
 		Update the value funciton
@@ -186,6 +190,7 @@ class GridworldValueVisualizer:
 		"""
 
 		pass
+
 
 
 
