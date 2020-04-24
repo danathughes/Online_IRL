@@ -381,11 +381,11 @@ def run(log_path, visualize):
 				# Pick a random task
 #				print(list(tasks.tasks.keys()))
 				task_to_remove = random.choice(tasks.toList())
-#				print(task_to_remove)
-				tasks.remove(task_to_remove)
-				removed_tasks.append(task_to_remove)
+				print(task_to_remove)
+				tasks.remove(task_to_remove[0])
+#				removed_tasks.append(task_to_remove)
 
-			log.log('removed_tasks', removed_tasks)
+#			log.log('removed_tasks', removed_tasks)
 
 			for task_state, task_num in detected_tasks:
 				tasks.add(task_state, task_num)
