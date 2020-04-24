@@ -49,8 +49,32 @@ class TaskWorld:
 
 
 
+def uniform_detector(reward_parameters):
+	"""
+	Pick a target at random
+	"""
+	return np.ones((len(reward_parameters),)) / len(reward_parameters)
+
+
+def beneficent_detector(reward_parameters):
+	"""
+	Try to pick the target that the UAV thinks theh player would prefer
+	"""
+
+	p = np.exp(reward_parameters)
+	return p / np.sum(p)
+
+
+def maleficent_detector(reward_parameters):
+	"""
+	Do the opposite of a beneficient detector
+	"""
+
+	return beneficient_detector(-reward_parameters)
+
+
 class UAV:
-	def __init__(self, mdp, initial_position, fov, tasks):
+	def __init__(self, mdp, initial_position, fov, tasks, detector=uniform_detector):
 		self.world_shape = mdp.environment.shape
 		self.position = initial_position
 		self.fov = [2,2]
@@ -58,6 +82,7 @@ class UAV:
 		self.tasks = tasks
 		self.detection_rate = 0.01
 		self.mdp = mdp
+		self.detector = detector
 
 
 	def observe(self):
@@ -138,11 +163,24 @@ class UAV:
 				if loc[0] >= 0 and loc[0] < self.world_shape[0] and loc[1] >= 0 and loc[1] < self.world_shape[1]:
 					observation_region.append(loc)
 
+		# We want to make sure that there are at least one task of each type
+		current_task_counts = [self.tasks.count(i) for i in range(NUM_TASK_TYPES)]
+
 		for state in observation_region:
 			if state in self.mdp.stateSpace and self.tasks.get(state) is None and np.random.random() < self.detection_rate:
-				task_num = np.random.randint(0,NUM_TASK_TYPES)
-				if len(detected_tasks) + len(self.tasks.toList()) < 40:
-					detected_tasks.append((state, task_num))
+#				task_num = np.random.randint(0,NUM_TASK_TYPES)
+				task_probs = self.detector(reward_parameters)
+#				print(task_probs)
+				task_num = np.random.choice(list(range(NUM_TASK_TYPES)), p=task_probs)
+
+				# Ensure that there is at least one task of each type
+				for i in range(NUM_TASK_TYPES):
+					if current_task_counts[i] == 0:
+						task_num = i
+
+				current_task_counts[task_num] += 1
+
+				detected_tasks.append((state, task_num))
 
 		return detected_tasks
 
@@ -189,8 +227,9 @@ def run(log_path, visualize):
 	onlineIrlSolver = SparseValueIteration(onlineIrlMdp, policyGenerator=BoltzmannPolicyGenerator(beta=BETA))
 
 
-	uav=UAV(mdp, (0,1), (2,2), tasks)
-
+	detectors={'neutral': uniform_detector, 'beneficent': beneficent_detector, 'maleficent': maleficent_detector}
+	uav=UAV(mdp, (0,1), (2,2), tasks, detector=detectors[DETECTOR])
+	generated_count = [0,0,0]
 
 	### Create a visualizer for all the components of interest
 	if visualize:
@@ -235,7 +274,8 @@ def run(log_path, visualize):
 	        	           'num_task_types': NUM_TASK_TYPES,
 	            	       'beta': BETA,
 	                	   'discount': DISCOUNT,
-		                   'blocked': blocked})
+		                   'blocked': blocked,
+		                   'detector': DETECTOR})
 
 	# Get the world state
 	state = world.current_state
@@ -326,14 +366,35 @@ def run(log_path, visualize):
 		uav.observe()
 
 		detected_tasks = uav.detect(onlineIRL.meanReward)
+		log.log('detected_tasks', detected_tasks)
 		if len(detected_tasks) > 0:
+			# Update the onlineIRL so it's state representation isn't stale
 			if len(trajectory) > 0:
 				onlineIRL.observe(trajectory)
 				prev_trajectory = copy.deepcopy(trajectory)
 				trajectory = []
 				updateIRL = True
+
+			# Remove tasks if there's too many total tasks
+			removed_tasks = []
+			while len(tasks.toList()) + len(detected_tasks) > 30:
+				# Pick a random task
+#				print(list(tasks.tasks.keys()))
+				task_to_remove = random.choice(tasks.toList())
+#				print(task_to_remove)
+				tasks.remove(task_to_remove)
+				removed_tasks.append(task_to_remove)
+
+			log.log('removed_tasks', removed_tasks)
+
 			for task_state, task_num in detected_tasks:
 				tasks.add(task_state, task_num)
+				generated_count[task_num] += 1
+
+#			task_counts = [tasks.count(i) for i in range(NUM_TASK_TYPES)]
+#			print("Existing:         RED: %d\tBLUE: %d\tGREEN: %d" % (task_counts[0], task_counts[1], task_counts[2]))
+#			print("Total Generated:  RED: %d\tBLUE: %d\tGREEN: %d" % (generated_count[0], generated_count[1], generated_count[2]))
+#			print()
 
 
 		if visualize:
@@ -361,6 +422,8 @@ def run(log_path, visualize):
 			log.log('onlineIRL_likelihood', onlineIrlPolicy.likelihood(prev_trajectory))
 			log.log('onlineIRL_V', onlineIrlSolver.V.copy())
 			log.log('onlineIrl_Q', onlineIrlSolver.Q.copy())
+
+			log.log('task_detection_probabilities', uav.detector(onlineIRL.meanReward))
 
 			if visualize:
 				rewardEstimateVisualizer.add(t, onlineIRL.meanReward, variance=onlineIRL.varReward)
