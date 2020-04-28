@@ -173,4 +173,5 @@ class DecayedBayesianOnlineIRL:
 		self.meanReward = self.mu
 		self.varReward = self.beta / (self.alpha - 1.0)
 
-		self.divergence = self.kl(oldMeanReward, oldVarReward, self.pseudoestimate, self.pseudovariance)
+#		self.divergence = self.kl(oldMeanReward, oldVarReward, self.pseudoestimate, self.pseudovariance)
+		self.divergence = self.kl(oldMeanReward, oldVarReward, self.meanReward, self.varReward)
