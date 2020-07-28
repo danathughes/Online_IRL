@@ -44,7 +44,7 @@ class TaskWorld:
 			self.world.addTerminalState(task)
 
 
-def getV(task_list, rewardParameters, policy):
+def getV(task_list, rewardParameters, policy, V0):
 	#### Create the environment #####
 	world = NoisyGridworld((WIDTH,HEIGHT), blocked=blocked, noise = NOISE, TransitionClass=SparseTransition)
 	taskWorld = TaskWorld(world)
@@ -67,6 +67,7 @@ def getV(task_list, rewardParameters, policy):
 	# Set up the MDP
 	mdp = MDP(world, reward, DISCOUNT)
 	solver = ILESolver(mdp, policyGenerator=BoltzmannPolicyGenerator(beta=BETA))
+	solver.V = V0
 	_ = solver.solve(policy)
 
 	return solver.V
@@ -152,7 +153,7 @@ def getILE(dataset):
 			policy = np.exp(20*extendedIRL_Q[t])
 			policy /= np.sum(policy, axis=1)[:,None]
 
-			V_pi = getV(task_lists[i][t], reward_parameters[i][t], policy)
+			V_pi = getV(task_lists[i][t], reward_parameters[i][t], policy, V[i][t].copy())
 
 			dV = V[i][t] - V_pi
 
